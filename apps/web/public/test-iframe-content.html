@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Test Iframe Content</title>
+    <style>
+      html, body {
+        background: #18181b;
+        color: #f4f4f5;
+        font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+      }
+      h2, h3 {
+        color: #f4f4f5;
+        margin-top: 1.5em;
+        margin-bottom: 0.5em;
+      }
+      .button-row {
+        margin-bottom: 1.5em;
+      }
+      button {
+        margin-right: 0.75em;
+        margin-bottom: 1em;
+        color: #f4f4f5;
+        background: #27272a;
+        border: 1px solid #3f3f46;
+        border-radius: 6px;
+        padding: 0.5em 1.2em;
+        font-size: 1em;
+        cursor: pointer;
+        transition: background 0.2s, border 0.2s;
+      }
+      button:hover {
+        background: #3f3f46;
+        border-color: #71717a;
+      }
+      .base64-block {
+        background: #23272f;
+        color: #38bdf8;
+        padding: 0.75em;
+        border-radius: 8px 8px 0 0;
+        font-size: 0.95em;
+        overflow-x: auto;
+        margin-top: 0.5em;
+        margin-bottom: 0;
+        word-break: break-all;
+        border-bottom: 1px solid #18181b;
+      }
+      .decoded-block {
+        background: #23272f;
+        color: #a3e635;
+        padding: 0.75em;
+        border-radius: 0 0 8px 8px;
+        font-size: 1em;
+        overflow-x: auto;
+        margin-top: 0;
+        margin-bottom: 1em;
+        word-break: break-all;
+      }
+      .error-block {
+        background: #23272f;
+        color: #f87171;
+        padding: 0.75em;
+        border-radius: 8px;
+        font-size: 1em;
+        overflow-x: auto;
+        margin-top: 0.5em;
+        margin-bottom: 1em;
+        word-break: break-all;
+      }
+      @media (max-width: 600px) {
+        .base64-block, .decoded-block, .error-block { font-size: 0.9em; }
+        button { font-size: 0.95em; }
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Game Iframe</h2>
+    <div class="button-row">
+      <button id="saveBtn">Send Save to Parent</button>
+      <button id="cloudBtn">Send Cloud to Parent</button>
+    </div>
+    <h3>Received from Parent:</h3>
+    <div id="received">
+      <div class="base64-block">Waiting for message...</div>
+      <div class="decoded-block"></div>
+    </div>
+    <script>
+      // Modern, safe base64 helpers for JSON
+      function encodeBase64(obj) {
+        return btoa(
+          encodeURIComponent(JSON.stringify(obj)).replace(
+            /%([0-9A-F]{2})/g,
+            (_, p1) => String.fromCharCode(parseInt(p1, 16))
+          )
+        );
+      }
+      function decodeBase64(str) {
+        return JSON.parse(
+          decodeURIComponent(
+            Array.prototype.map
+              .call(atob(str), c =>
+                "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
+              )
+              .join("")
+          )
+        );
+      }
+      function showReceivedBase64AndDecoded(type, base64) {
+        const received = document.getElementById('received');
+        let decodedHtml = "";
+        try {
+          const decoded = decodeBase64(base64);
+          decodedHtml = `<div class="decoded-block">${JSON.stringify({ type, payload: decoded }, null, 2)}</div>`;
+        } catch (e) {
+          decodedHtml = `<div class="error-block">Failed to decode base64</div>`;
+        }
+        received.innerHTML =
+          `<div class="base64-block">${base64}</div>` +
+          decodedHtml;
+      }
+      window.addEventListener('message', function(event) {
+        // For demo, accept all origins. In production, check event.origin!
+        if (event.data && event.data.type && event.data.base64) {
+          showReceivedBase64AndDecoded(event.data.type, event.data.base64);
+        }
+      });
+      document.getElementById('saveBtn').onclick = function() {
+        const payload = {
+          saveId: 'save_' + Date.now(),
+          data: {
+            coins: Math.floor(Math.random() * 1000),
+            inventory: ['sword', 'shield'],
+            timestamp: new Date().toISOString()
+          }
+        };
+        window.parent.postMessage(
+          {
+            type: 'SAVE',
+            base64: encodeBase64(payload)
+          },
+          '*'
+        );
+      };
+      document.getElementById('cloudBtn').onclick = function() {
+        const payload = {
+          user: 'player1',
+          cloudData: {
+            achievements: ['first_win', 'collector'],
+            lastSync: new Date().toISOString()
+          }
+        };
+        window.parent.postMessage(
+          {
+            type: 'CLOUD',
+            base64: encodeBase64(payload)
+          },
+          '*'
+        );
+      };
+    </script>
+  </body>
+</html>
